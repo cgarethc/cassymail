@@ -10,8 +10,8 @@ var insertCounter = 0;
 
 // const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive/Archived!1';
 const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive';
-const ASYNC_LIMIT = 500;
-const CQL_INSERT_MAIL = 'INSERT INTO mail (messageid, datesent, mailfrom, mailto, subject) VALUES (?, ?, ?, ?, ?)';
+const ASYNC_LIMIT = 1000;
+const CQL_INSERT_MAIL = 'INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, subject) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
 // configure logger
 log4js.configure(
@@ -86,31 +86,39 @@ walk(MAIL_DIR, function(err, results){
           + ' Message-ID:' + JSON.stringify(mail_object.headers['message-id'])
         );
 
-        if(mail_object.to && mail_object.from && mail_object.to.length > 0 && mail_object.from.length > 0 ){
-          client.execute(CQL_INSERT_MAIL,
-            [
-              mail_object.headers['message-id'],
-              mail_object.date,
-              mail_object.from[0].address,
-              mail_object.to[0].address,
-              mail_object.subject
-            ],
-            function(err, result) {
-              if (err){
-                logger.error(err);
-                callback(err);
-              }
-              else{
-                process.stdout.write(".");
-                insertCounter++;
-                callback();
-              }
+        var fromAddress;
+        if(mail_object.from && mail_object.from.length > 0){
+          fromAddress = mail_object.from[0].address;
+        }
+        var toAddress;
+        if(mail_object.to && mail_object.to.length > 0){
+          toAddress = mail_object.to[0].address;
+        }
+
+        client.execute(CQL_INSERT_MAIL,
+          [
+            mail_object.headers['message-id'],
+            mail_object.date,
+            mail_object.date.getFullYear(),
+            mail_object.date.getMonth(),
+            mail_object.date.getDate(),
+            fromAddress,
+            toAddress,
+            mail_object.subject
+          ],
+          {prepare: true},
+          function(err, result) {
+            if (err){
+              logger.error(err);
+              callback(err);
             }
-          );
-        }
-        else{
-          logger.warn('Ignoring mail with missing sender or recipient: ' + JSON.stringify(mail_object));
-        }
+            else{
+              process.stdout.write(".");
+              insertCounter++;
+              callback();
+            }
+          }
+        );
 
       }
     );
