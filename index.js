@@ -8,7 +8,6 @@ var MailParser = require('mailparser').MailParser;
 
 var insertCounter = 0;
 
-// const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive/Archived!1';
 const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive';
 const ASYNC_LIMIT = 1000;
 const CQL_INSERT_MAIL = 'INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, subject) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';

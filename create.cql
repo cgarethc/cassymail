@@ -9,5 +9,5 @@ CREATE TABLE mail (
   mailfrom varchar,
   mailto varchar,
   subject varchar,
-  PRIMARY KEY(yearsent, monthsent, dayofmonthsent)
+  PRIMARY KEY(yearsent, monthsent, dayofmonthsent, messageid)
 );
