@@ -6,8 +6,11 @@ CREATE TABLE mail (
   yearsent int,
   monthsent int,
   dayofmonthsent int,
-  mailfrom varchar,
-  mailto varchar,
+  mailfrom list<varchar>,
+  mailto list<varchar>,
+  cc list<varchar>,
+  bcc list<varchar>,
   subject varchar,
   PRIMARY KEY(yearsent, monthsent, dayofmonthsent, messageid)
 );
+CREATE INDEX mailto on mail(mailto);

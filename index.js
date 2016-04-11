@@ -8,18 +8,12 @@ var MailParser = require('mailparser').MailParser;
 
 var insertCounter = 0;
 
-const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive';
+const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive/Archived';
 const ASYNC_LIMIT = 1000;
-const CQL_INSERT_MAIL = 'INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, subject) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+const CQL_INSERT_MAIL =
+'INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, cc, bcc, subject) '
++ 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
-// configure logger
-log4js.configure(
-  {
-    appenders: [
-      { type: 'console'}
-    ]
-  }
-);
 var logger = log4js.getLogger();
 logger.setLevel('INFO');
 
@@ -85,14 +79,23 @@ walk(MAIL_DIR, function(err, results){
           + ' Message-ID:' + JSON.stringify(mail_object.headers['message-id'])
         );
 
-        var fromAddress;
-        if(mail_object.from && mail_object.from.length > 0){
-          fromAddress = mail_object.from[0].address;
+        var cleanArray = function(field){
+          var result = [];
+          if(field && field.length > 0){
+            result = _.map(
+              field,
+              function(item){
+                return _.toLower(item.address);
+              }
+            );
+          }
+          return result;
         }
-        var toAddress;
-        if(mail_object.to && mail_object.to.length > 0){
-          toAddress = mail_object.to[0].address;
-        }
+
+        var fromAddress = cleanArray(mail_object.from);
+        var toAddress = cleanArray(mail_object.to);
+        var ccAddress = cleanArray(mail_object.cc);
+        var bccAddress = cleanArray(mail_object.bcc);
 
         client.execute(CQL_INSERT_MAIL,
           [
@@ -103,7 +106,9 @@ walk(MAIL_DIR, function(err, results){
             mail_object.date.getDate(),
             fromAddress,
             toAddress,
-            mail_object.subject
+            ccAddress,
+            bccAddress,
+            _.trim(mail_object.subject)
           ],
           {prepare: true},
           function(err, result) {
@@ -114,6 +119,9 @@ walk(MAIL_DIR, function(err, results){
             else{
               process.stdout.write(".");
               insertCounter++;
+              if(insertCounter % 1000 === 0){
+                process.stdout.write(' ' + insertCounter + ' ');
+              }
               callback();
             }
           }
