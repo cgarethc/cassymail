@@ -13,8 +13,8 @@ var insertCounter = 0;
 const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive/Archived!50';
 const ASYNC_LIMIT = 1000;
 const CQL_INSERT_MAIL =
-'INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, cc, bcc, subject) '
-+ 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  `INSERT INTO mail (messageid, datesent, yearsent, monthsent, dayofmonthsent, mailfrom, mailto, cc, bcc, subject)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';`;
 
 var logger = log4js.getLogger();
 logger.setLevel('INFO');

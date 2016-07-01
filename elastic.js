@@ -16,6 +16,8 @@ var client = new elasticsearch.Client({
 var insertCounter = 0;
 
 const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive';
+// const MAIL_DIR = '/Users/wyngc1/Downloads/OrionMailArchive/Archived!62';
+const INDEX = 'email';
 const ASYNC_LIMIT = 1000;
 
 var logger = log4js.getLogger();
@@ -53,80 +55,109 @@ var walk = function(dir, done) {
   });
 };
 
-walk(MAIL_DIR, function(err, results){
-  if(err){
-    logger.error(err);
+
+client.indices.delete({index:INDEX}, (error, response) =>{
+  if(error){
+    logger.warn(error);
   }
-  else{
-    logger.info('Directories traversed (' + results.length +' files visited)');
 
-    // only interested in eml format files
-    var emlFiles = _.filter(results, function(file){return file.endsWith('.eml');});
-    logger.info(emlFiles.length + ' eml files');
+  client.indices.create(
+    {
+    'index':'email',
+    body:{'settings':{'analysis':{'analyzer':{'urls-links-emails':{'type':'custom','tokenizer':'uax_url_email'}}}},
+    'mappings':
+    {'emails':{
+      'properties':{
+        'mailto':{'type':'string','analyzer':'urls-links-emails'},
+        'mailfrom':{'type':'string','analyzer':'urls-links-emails'},
+        'cc':{'type':'string','analyzer':'urls-links-emails'},
+        'bcc':{'type':'string','analyzer':'urls-links-emails'}
+      }
+    }}}
+    },
+    (error, response) => {
+      if(error){
+        logger.error(error);
+      }
+      walk(MAIL_DIR, function(err, results){
+        if(err){
+          logger.error(err);
+        }
+        else{
+          logger.info('Directories traversed (' + results.length +' files visited)');
 
-    async.forEachOfLimit(emlFiles, ASYNC_LIMIT, function(file, index, callback){
-      var mailparser = new MailParser();
-      mailparser.on('end', function(mail_object){
-        logger.debug(
-          'Date:' + mail_object.date + ' Subject:' + mail_object.subject +
-          ' From:' + JSON.stringify(mail_object.from) +
-          ' To:' + JSON.stringify(mail_object.to) +
-          ' CC:' + JSON.stringify(mail_object.cc) +
-          ' BCC:' + JSON.stringify(mail_object.bcc) +
-          ' Message-ID:' + JSON.stringify(mail_object.headers['message-id'])
-        );
+          // only interested in eml format files
+          var emlFiles = _.filter(results, function(file){return file.endsWith('.eml');});
+          logger.info(emlFiles.length + ' eml files');
 
-        var cleanArray = function(field){
-          var result = [];
-          if(field && field.length > 0){
-            result = _.map(
-              field,
-              function(item){
-                return _.toLower(item.address);
-              }
-            );
-          }
-          return result;
-        };
+          async.forEachOfLimit(emlFiles, ASYNC_LIMIT, function(file, index, callback){
+            var mailparser = new MailParser();
+            mailparser.on('end', (mail_object) => {
+              logger.debug(
+                'Date:' + mail_object.date + ' Subject:' + mail_object.subject +
+                ' From:' + JSON.stringify(mail_object.from) +
+                ' To:' + JSON.stringify(mail_object.to) +
+                ' CC:' + JSON.stringify(mail_object.cc) +
+                ' BCC:' + JSON.stringify(mail_object.bcc) +
+                ' Message-ID:' + JSON.stringify(mail_object.headers['message-id'])
+              );
 
-        var fromAddress = cleanArray(mail_object.from);
-        var toAddress = cleanArray(mail_object.to);
-        var ccAddress = cleanArray(mail_object.cc);
-        var bccAddress = cleanArray(mail_object.bcc);
+              var cleanArray = (field) => {
+                var result = [];
+                if(field && field.length > 0){
+                  result = _.map(
+                    field,
+                    function(item){
+                      return _.toLower(item.address);
+                    }
+                  );
+                }
+                return result;
+              };
 
-        // index the mail
-        var docToInsert = {
-          messageid:mail_object.headers['message-id'],
-          datesent:mail_object.date,
-          mailfrom:fromAddress,
-          mailto:toAddress,
-          cc:ccAddress,
-          bcc:bccAddress,
-          subject:_.trim(mail_object.subject),
-          body:mail_object.text
-        };
+              var fromAddress = cleanArray(mail_object.from);
+              var toAddress = cleanArray(mail_object.to);
+              var ccAddress = cleanArray(mail_object.cc);
+              var bccAddress = cleanArray(mail_object.bcc);
 
-        client.index({
-          index: 'email',
-          type: 'email',
-          id: mail_object.headers['message-id'],
-          body: docToInsert
-        }, function (error, response) {
-          if(error){
-            logger.error('Failed', error);
-            callback(error);
-          }
-          else{
-            logger.debug(response);
-            callback();
-          }
+              // index the mail
+              var docToInsert = {
+                messageid:mail_object.headers['message-id'],
+                datesent:mail_object.date,
+                mailfrom:fromAddress,
+                mailto:toAddress,
+                cc:ccAddress,
+                bcc:bccAddress,
+                subject:_.trim(mail_object.subject),
+                body:mail_object.text
+              };
+
+              client.index({
+                index: INDEX,
+                type: 'email',
+                id: mail_object.headers['message-id'],
+                body: docToInsert
+              }, function (error, response) {
+                if(error){
+                  logger.error('Failed', error);
+                  callback(error);
+                }
+                else{
+                  logger.debug(response);
+                  callback();
+                }
+              });
+
+            }
+          );
+          fs.createReadStream(file).pipe(mailparser);
         });
 
+
       }
-    );
-    fs.createReadStream(file).pipe(mailparser);
-  });
+      });
+    }
+  );
 
 
-}
 });
