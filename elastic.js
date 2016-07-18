@@ -71,7 +71,8 @@ client.indices.delete({index:INDEX}, (error, response) =>{
         'mailto':{'type':'string','analyzer':'urls-links-emails'},
         'mailfrom':{'type':'string','analyzer':'urls-links-emails'},
         'cc':{'type':'string','analyzer':'urls-links-emails'},
-        'bcc':{'type':'string','analyzer':'urls-links-emails'}
+        'bcc':{'type':'string','analyzer':'urls-links-emails'},
+        'body':{'type':'string','analyzer':'english'}
       }
     }}}
     },
